@@ -2,7 +2,7 @@
 //Ideally, we get all the songs from the server using APIs
 //Currently, this is good for learning purpose
 
-let currentsong =  new Audio();
+let currentsong = new Audio();
 let songs;
 let currfolder;
 
@@ -21,7 +21,7 @@ async function getsongs(folder){
     div.innerHTML = response;
     let as = div.getElementsByTagName("a");
     
-    let songs = [];
+    songs = []; // Reset songs array for new folder
     for (let index = 0; index < as.length; index++) {
         const element = as[index];
         if (element.href.endsWith(".mp3")){
@@ -78,17 +78,22 @@ async function getsongs(folder){
 
 const playMusic = (track, pause = false) => {
     // Don't add .mp3 again since it's already in the filename
-    // let audio = new Audio("/songs/" + track);
     currentsong.src = `/${currfolder}/` + track;
     if(!pause){
         currentsong.play()
         document.getElementById("play").src = "img/pause.svg"
     }
    
-    // console.log("Trying to play:", "/songs/" + track); // Debug log
-    document.querySelector(".songinfo").innerHTML = track .replace('.mp3', '').replaceAll('%20', ' ').replaceAll('%20-%20', ' - ')
+    // Update song info display
+    let displayName = track
+        .replace('.mp3', '')
+        .replaceAll('%20', ' ')
+        .replaceAll('%20-%20', ' - ');
+    
+    document.querySelector(".songinfo").innerHTML = displayName;
     document.querySelector(".songtime").innerHTML = "00:00 / 00:00"
 }
+
 async function DisplayAlbums() {
     let a = await fetch(`/songs/`);
     let response = await a.text();
@@ -96,14 +101,48 @@ async function DisplayAlbums() {
     div.innerHTML = response;
     let Anchors = div.getElementsByTagName("a")
     let cardcontainer = document.querySelector(".cardcontainer")
+    
+    // Clear existing cards first
+    cardcontainer.innerHTML = ""
+    
     let array = Array.from(Anchors)
-        for (let index = 0; index < array.length; index++) {
-            const e = array[index];
-        if(e.href.includes("/songs")){
+    
+    for (let index = 0; index < array.length; index++) {
+        const e = array[index];
+        
+        // More strict filtering - only include actual folder directories
+        if(e.href.includes("/songs/") && 
+           !e.href.endsWith("/songs/") && 
+           !e.href.includes("..") &&
+           e.href.endsWith("/")) { // Only directories end with /
+            
             let folder = e.href.split("/").slice(-2)[0]
-            //Get the meta data of the folder
-            let a = await fetch(`/songs/${folder}/info.json`);
-            let response = await a.json();
+            
+            // Skip common non-album folders
+            if (folder === "" || 
+                folder === "." || 
+                folder === ".." ||
+                folder.startsWith(".")) {
+                continue;
+            }
+            
+            console.log("Found album folder:", folder); // Debug log
+            
+            // Try to get metadata, but handle if info.json doesn't exist
+            let title = folder;
+            let description = "Album";
+            
+            try {
+                let metaResponse = await fetch(`/songs/${folder}/info.json`);
+                if (metaResponse.ok) {
+                    let metadata = await metaResponse.json();
+                    title = metadata.title || folder;
+                    description = metadata.description || "Album";
+                }
+            } catch (error) {
+                console.log(`No info.json found for ${folder}, using default values`);
+            }
+            
             cardcontainer.innerHTML = cardcontainer.innerHTML + `<div data-folder="${folder}" class="card rounded">
                       <div class="card-playbutton">
                         <svg width="40" height="40" fill="white" version="1.1" id="Capa_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 408.221 408.221" xml:space="preserve" stroke="#1DB954">
@@ -117,25 +156,28 @@ async function DisplayAlbums() {
                             </g>
                         </svg>
                       </div>  
-                        <img src="/songs/${folder}/cover.jpg" alt="">
-                        <h2>${response.title}</h2>
-                        <p>${response.description}</p>
+                        <img src="/songs/${folder}/cover.jpg" alt="" onerror="this.src='img/default-album.png'">
+                        <h2>${title}</h2>
+                        <p>${description}</p>
                     </div>`
         }
     }
+    
     //Loading Playlist when card is clicked
     Array.from(document.getElementsByClassName("card")).forEach(e => {
         e.addEventListener("click", async item => {
-            songs = await getsongs(`songs/${item.currentTarget.dataset.folder}`) //NOTE:- if i use item.target(this gives us the exact element clicked) instead of item.currentTarget(this gives us the element to which the event is attached) then it will not work if we click on the text or image inside the card as item.target will give us that element
-            playMusic(songs[0], false)
+            console.log("Card clicked:", item.currentTarget.dataset.folder);
+            let newSongs = await getsongs(`songs/${item.currentTarget.dataset.folder}`);
+            if (newSongs && newSongs.length > 0) {
+                songs = newSongs; // Update the global songs array
+                console.log("New songs loaded:", songs);
+                playMusic(songs[0], false);
+            }
         })
     });
-    
 }
 
-
 async function main(){
-
     //Get list of songs
     songs = await getsongs(`songs/Fav-Songs`)
     console.log("All songs:", songs) // Debug: see actual filenames
@@ -144,7 +186,6 @@ async function main(){
     //Display All the Albums on the Page
     DisplayAlbums()
 
-    
     //Attach an event listener to the play,next and previous button
     document.getElementById("play").addEventListener("click", () => {
         if (currentsong.paused){
@@ -159,7 +200,7 @@ async function main(){
     //listen for timeupdate event
     currentsong.addEventListener("timeupdate", () => {
         console.log(currentsong.currentTime, currentsong.duration);
-        document.querySelector(".songtime").innerHTML = formatTime(currentsong.currentTime) + " : " + formatTime(currentsong.duration)
+        document.querySelector(".songtime").innerHTML = formatTime(currentsong.currentTime) + " / " + formatTime(currentsong.duration)
         document.querySelector(".circle").style.left = ((currentsong.currentTime/currentsong.duration)*100) + "%"
     })
 
@@ -217,6 +258,7 @@ async function main(){
             document.querySelector(".volume").getElementsByTagName("img")[0].src = "img/volume.svg"
         }
     });
+    
     //Add event listener for mute
     document.querySelector(".vol-img").addEventListener("click", (e) => {
         if (currentsong.volume != 0){
@@ -229,7 +271,6 @@ async function main(){
             document.querySelector(".range").getElementsByTagName("input")[0].value = 100
         }
     });
-    
 }
 
 main()
