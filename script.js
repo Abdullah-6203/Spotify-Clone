@@ -158,17 +158,97 @@ async function main() {
         }
     });
 
-    // Previous button
-    document.getElementById("previous").addEventListener("click", () => {
-        let index = songs.indexOf(currentsong.src.split("/").pop());
-        if (index > 0) playMusic(songs[index-1]);
-    });
+    // Fixed Previous and Next Button Logic
 
-    // Next button
-    document.getElementById("Next").addEventListener("click", () => {
-        let index = songs.indexOf(currentsong.src.split("/").pop());
-        if (index < songs.length-1) playMusic(songs[index+1]);
-    });
+// Previous button
+document.getElementById("previous").addEventListener("click", () => {
+    if (!songs || songs.length === 0) {
+        console.log("No songs loaded");
+        return;
+    }
+    
+    // Get the current filename from the source URL
+    let currentSrc = currentsong.src;
+    if (!currentSrc) {
+        console.log("No current song playing");
+        return;
+    }
+    
+    // Extract just the filename (with URL encoding preserved)
+    let filename = decodeURIComponent(currentSrc.split("/").slice(-1)[0]);
+    
+    // Find the index in songs array
+    let index = -1;
+    for (let i = 0; i < songs.length; i++) {
+        let songName = decodeURIComponent(songs[i]);
+        if (songName === filename) {
+            index = i;
+            break;
+        }
+    }
+    
+    console.log("Previous - Current filename:", filename);
+    console.log("Previous - Found index:", index);
+    console.log("Previous - Songs array:", songs);
+    
+    if (index > 0) {
+        playMusic(songs[index - 1]);
+        console.log("Playing previous:", songs[index - 1]);
+    } else if (index === 0) {
+        console.log("Already at first song");
+        // Optional: Loop to last song
+        // playMusic(songs[songs.length - 1]);
+    } else {
+        console.log("Current song not found in playlist");
+        // Fallback: play first song
+        playMusic(songs[0]);
+    }
+});
+
+// Next button
+document.getElementById("Next").addEventListener("click", () => {
+    if (!songs || songs.length === 0) {
+        console.log("No songs loaded");
+        return;
+    }
+    
+    // Get the current filename from the source URL
+    let currentSrc = currentsong.src;
+    if (!currentSrc) {
+        console.log("No current song playing");
+        return;
+    }
+    
+    // Extract just the filename (with URL encoding preserved)
+    let filename = decodeURIComponent(currentSrc.split("/").slice(-1)[0]);
+    
+    // Find the index in songs array
+    let index = -1;
+    for (let i = 0; i < songs.length; i++) {
+        let songName = decodeURIComponent(songs[i]);
+        if (songName === filename) {
+            index = i;
+            break;
+        }
+    }
+    
+    console.log("Next - Current filename:", filename);
+    console.log("Next - Found index:", index);
+    console.log("Next - Songs array:", songs);
+    
+    if (index >= 0 && index < songs.length - 1) {
+        playMusic(songs[index + 1]);
+        console.log("Playing next:", songs[index + 1]);
+    } else if (index === songs.length - 1) {
+        console.log("Already at last song");
+        // Optional: Loop to first song
+        // playMusic(songs[0]);
+    } else {
+        console.log("Current song not found in playlist");
+        // Fallback: play first song
+        playMusic(songs[0]);
+    }
+});
 
     // Update seekbar
     currentsong.addEventListener("timeupdate", () => {
@@ -213,6 +293,8 @@ async function main() {
     document.querySelector(".close").addEventListener("click", () => {
         document.querySelector(".left").style.left = "-120%";
     });
+
+
 }
 
 // Run main
